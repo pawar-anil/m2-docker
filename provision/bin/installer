@@ -27,155 +27,157 @@ file_env() {
 	unset "$fileVar"
 }
 
-_check_config() {
-	toRun=( mysqld --verbose --help --log-bin-index="$(mktemp -u)" )
-	if ! errors="$("${toRun[@]}" 2>&1 >/dev/null)"; then
-		cat >&2 <<-EOM
+# _check_config() {
+# 	toRun=( mysqld --verbose --help --log-bin-index="$(mktemp -u)" )
+# 	if ! errors="$("${toRun[@]}" 2>&1 >/dev/null)"; then
+# 		cat >&2 <<-EOM
 
-			ERROR: mysqld failed while attempting to check config
-			command was: "${toRun[*]}"
+# 			ERROR: mysqld failed while attempting to check config
+# 			command was: "${toRun[*]}"
 
-			$errors
-		EOM
-		exit 1
-	fi
-}
+# 			$errors
+# 		EOM
+# 		exit 1
+# 	fi
+# }
 
-_datadir() {
-	mysqld --verbose --help --log-bin-index="$(mktemp -u)" 2>/dev/null | awk '$1 == "datadir" { print $2; exit }'
-}
+# _datadir() {
+# 	mysqld --verbose --help --log-bin-index="$(mktemp -u)" 2>/dev/null | awk '$1 == "datadir" { print $2; exit }'
+# }
 
-_listen() {
-  sed -e "s/^bind-address\(.*\)=.*/bind-address = $1/" -i /etc/mysql/my.cnf
-}
+# _listen() {
+#   sed -e "s/^bind-address\(.*\)=.*/bind-address = $1/" -i /etc/mysql/my.cnf
+# }
 
-	_check_config
+	#_check_config
 	# Get config
-	DATADIR="$(_datadir )"
+	#DATADIR="$(_datadir )"
 
-if [ ! -d "$DATADIR/mysql" ]; then
-	file_env 'MYSQL_ROOT_PASSWORD'
-	if [ -z "$MYSQL_ROOT_PASSWORD" -a -z "$MYSQL_ALLOW_EMPTY_PASSWORD" -a -z "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
-		echo >&2 'error: database is uninitialized and password option is not specified '
-		echo >&2 '  You need to specify one of MYSQL_ROOT_PASSWORD, MYSQL_ALLOW_EMPTY_PASSWORD and MYSQL_RANDOM_ROOT_PASSWORD'
-		exit 1
-	fi
+# if [ ! -d "$DATADIR/mysql" ]; then
+# 	# file_env 'MYSQL_ROOT_PASSWORD'
+# 	# if [ -z "$MYSQL_ROOT_PASSWORD" -a -z "$MYSQL_ALLOW_EMPTY_PASSWORD" -a -z "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
+# 	# 	echo >&2 'error: database is uninitialized and password option is not specified '
+# 	# 	echo >&2 '  You need to specify one of MYSQL_ROOT_PASSWORD, MYSQL_ALLOW_EMPTY_PASSWORD and MYSQL_RANDOM_ROOT_PASSWORD'
+# 	# 	exit 1
+# 	# fi
 
-	mkdir -p "$DATADIR"
-    chown mysql:mysql $DATADIR
+# 	#mkdir -p "$DATADIR"
+#     #chown mysql:mysql $DATADIR
 
-	echo 'Initializing database'
-	mysql_install_db --datadir="$DATADIR" --rpm 
-	echo 'Database initialized'
+# 	echo 'Initializing database'
+# 	#mysql_install_db --datadir="$DATADIR" --rpm 
+# 	echo 'Database initialized'
 
-    chown -R mysql:mysql $DATADIR
+#     #chown -R mysql:mysql $DATADIR
 
-#     exec gosu mysql 
-    mysqld --user=mysql --skip-networking --socket=/var/run/mysqld/mysqld.sock &
-	pid="$!"
+# #     exec gosu mysql 
+#     mysqld --user=mysql --skip-networking --socket=/var/run/mysqld/mysqld.sock &
+# 	pid="$!"
 
-	mysql=( mysql --protocol=socket -uroot  -hlocalhost --socket=/var/run/mysqld/mysqld.sock )
+# 	mysql=( mysql --protocol=socket -uroot  -h172.19.0.2 --socket=/var/run/mysqld/mysqld.sock )
 
-	for i in {30..0}; do
-		if echo 'SELECT 1' | "${mysql[@]}" &> /dev/null; then
-			break
-		fi
-		echo 'MySQL init process in progress...'
-		sleep 1
-	done
-	if [ "$i" = 0 ]; then
-		echo >&2 'MySQL init process failed.'
-		exit 1
-	fi
+# 	for i in {30..0}; do
+# 		if echo 'SELECT 1' | "${mysql[@]}" &> /dev/null; then
+# 			break
+# 		fi
+# 		echo 'MySQL init process in progress...'
+# 		sleep 1
+# 	done
+# 	if [ "$i" = 0 ]; then
+# 		echo >&2 'MySQL init process failed.'
+# 		exit 1
+# 	fi
 
-	if [ -z "$MYSQL_INITDB_SKIP_TZINFO" ]; then
-		# sed is for https://bugs.mysql.com/bug.php?id=20545
-		mysql_tzinfo_to_sql /usr/share/zoneinfo | sed 's/Local time zone must be set--see zic manual page/FCTY/' | "${mysql[@]}" mysql
-	fi
+# 	if [ -z "$MYSQL_INITDB_SKIP_TZINFO" ]; then
+# 		# sed is for https://bugs.mysql.com/bug.php?id=20545
+# 		mysql_tzinfo_to_sql /usr/share/zoneinfo | sed 's/Local time zone must be set--see zic manual page/FCTY/' | "${mysql[@]}" mysql
+# 	fi
 
-	"${mysql[@]}" <<-EOSQL
-		-- What's done in this file shouldn't be replicated
-		--  or products like mysql-fabric won't work
-		SET @@SESSION.SQL_LOG_BIN=0;
+# 	"${mysql[@]}" <<-EOSQL
+# 		-- What's done in this file shouldn't be replicated
+# 		--  or products like mysql-fabric won't work
+# 		SET @@SESSION.SQL_LOG_BIN=0;
 
-		DELETE FROM mysql.user ;
-		CREATE USER 'root'@'%' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}' ;
-		GRANT ALL ON *.* TO 'root'@'%' WITH GRANT OPTION ;
-		DROP DATABASE IF EXISTS test ;
-		FLUSH PRIVILEGES ;
-	EOSQL
+# 		DELETE FROM mysql.user ;
+# 		CREATE USER 'root'@'%' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}' ;
+# 		GRANT ALL ON *.* TO 'root'@'%' WITH GRANT OPTION ;
+# 		DROP DATABASE IF EXISTS test ;
+# 		FLUSH PRIVILEGES ;
+# 	EOSQL
 
-	if [ ! -z "$MYSQL_ROOT_PASSWORD" ]; then
-            mysql+=( -p"${MYSQL_ROOT_PASSWORD}" )
-	fi
+# 	if [ ! -z "$MYSQL_ROOT_PASSWORD" ]; then
+#             mysql+=( -p"${MYSQL_ROOT_PASSWORD}" )
+# 	fi
 
-    echo "Creating database and user..."
+#     echo "Creating database and user..."
 
-	file_env 'MYSQL_DATABASE'
-	if [ "$MYSQL_DATABASE" ]; then
-		echo "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` ;" | "${mysql[@]}"
-		mysql+=( "$MYSQL_DATABASE" )
-	fi
+# 	file_env 'MYSQL_DATABASE'
+# 	if [ "$MYSQL_DATABASE" ]; then
+# 		echo "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` ;" | "${mysql[@]}"
+# 		mysql+=( "$MYSQL_DATABASE" )
+# 	fi
 
-	file_env 'MYSQL_USER'
-	file_env 'MYSQL_PASSWORD'
-	if [ "$MYSQL_USER" -a "$MYSQL_PASSWORD" ]; then
-		echo "CREATE USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' ;" | "${mysql[@]}"
+# 	file_env 'MYSQL_USER'
+# 	file_env 'MYSQL_PASSWORD'
+# 	if [ "$MYSQL_USER" -a "$MYSQL_PASSWORD" ]; then
+# 		echo "CREATE USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' ;" | "${mysql[@]}"
 
-		if [ "$MYSQL_DATABASE" ]; then
-			echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'%' ;" | "${mysql[@]}"
-		fi
+# 		if [ "$MYSQL_DATABASE" ]; then
+# 			echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'%' ;" | "${mysql[@]}"
+# 		fi
 
-		echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
-	fi
+# 		echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
+# 	fi
 
-    if [ "$MYSQL_USER" -a "$MYSQL_PASSWORD" ]; then
-        echo "CREATE USER '$MYSQL_USER'@'localhost' IDENTIFIED BY '$MYSQL_PASSWORD' ;" | "${mysql[@]}"
+#     if [ "$MYSQL_USER" -a "$MYSQL_PASSWORD" ]; then
+#         echo "CREATE USER '$MYSQL_USER'@'172.19.0.2' IDENTIFIED BY '$MYSQL_PASSWORD' ;" | "${mysql[@]}"
 
-        if [ "$MYSQL_DATABASE" ]; then
-            echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'localhost' ;" | "${mysql[@]}"
-        fi
+#         if [ "$MYSQL_DATABASE" ]; then
+#             echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'172.19.0.2' ;" | "${mysql[@]}"
+#         fi
 
-        echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
-    fi
+#         echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
+#     fi
 
-    ## create a localhost only, debian-sys-maint user
-    ## the debian-sys-maint is used while creating users and database
-    ## as well as to shut down or starting up the mysql server via mysqladmin
-    echo "Creating debian-sys-maint user..."
-    echo "GRANT ALL PRIVILEGES on *.* TO 'debian-sys-maint'@'localhost' IDENTIFIED BY '' WITH GRANT OPTION;" | "${mysql[@]}"
-    echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
+#     ## create a 172.19.0.2 only, debian-sys-maint user
+#     ## the debian-sys-maint is used while creating users and database
+#     ## as well as to shut down or starting up the mysql server via mysqladmin
+#     echo "Creating debian-sys-maint user..."
+#     echo "GRANT ALL PRIVILEGES on *.* TO 'debian-sys-maint'@'172.19.0.2' IDENTIFIED BY '' WITH GRANT OPTION;" | "${mysql[@]}"
+#     echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
 
-	echo
-	for f in /docker-entrypoint-initdb.d/*; do
-		case "$f" in
-			*.sh)     echo "$0: running $f"; . "$f" ;;
-			*.sql)    echo "$0: running $f"; "${mysql[@]}" < "$f"; echo ;;
-			*.sql.gz) echo "$0: running $f"; gunzip -c "$f" | "${mysql[@]}"; echo ;;
-			*)        echo "$0: ignoring $f" ;;
-		esac
-		echo
-	done
+# 	echo
+# 	for f in /docker-entrypoint-initdb.d/*; do
+# 		case "$f" in
+# 			*.sh)     echo "$0: running $f"; . "$f" ;;
+# 			*.sql)    echo "$0: running $f"; "${mysql[@]}" < "$f"; echo ;;
+# 			*.sql.gz) echo "$0: running $f"; gunzip -c "$f" | "${mysql[@]}"; echo ;;
+# 			*)        echo "$0: ignoring $f" ;;
+# 		esac
+# 		echo
+# 	done
 
-	if ! kill -s TERM "$pid" || ! wait "$pid"; then
-		echo >&2 'MySQL init process failed.'
-		exit 1
-	fi
+# 	if ! kill -s TERM "$pid" || ! wait "$pid"; then
+# 		echo >&2 'MySQL init process failed.'
+# 		exit 1
+# 	fi
 
-	echo
-	echo 'MySQL init process done. Ready for start up.'
-	echo
-fi
+# 	echo
+# 	echo 'MySQL init process done. Ready for start up.'
+# 	echo
+# fi
 
 # start mysql server
     echo "Starting MySQL server..."
-    _listen "127.0.0.1"
+    #_listen "172.19.0.2"
     /usr/bin/mysqld_safe >/dev/null 2>&1 &
 
 # wait for mysql server to start (max 30 seconds)
     timeout=30
     echo -n "Waiting for database server to accept connections"
-    while ! /usr/bin/mysqladmin -u root -p${MYSQL_ROOT_PASSWORD} status >/dev/null 2>&1
+    #while ! /usr/bin/mysqladmin -u root -p${MYSQL_HOST} status >/dev/null 2>&1
+    while ! /usr/bin/mysqladmin -h${MYSQL_HOST} -u${MYSQL_ROOT_USER} -p${MYSQL_ROOT_PASSWORD} --port=${MYSQL_PORT} status >/dev/null 2>&1
+    #while ! /usr/bin/mysqladmin -h172.19.0.2 -uroot -proot --port=3306 status >/dev/null 2>&1
     do
       timeout=$(($timeout - 1))
       if [ $timeout -eq 0 ]; then
@@ -196,6 +198,25 @@ fi
 
 # Check if the nginx syntax is fine, then launch.
 nginx -t
+
+
+
+
+apt-get install wget
+wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
+dpkg -i erlang-solutions_1.0_all.deb
+apt-get update
+apt-get install erlang erlang-nox
+echo 'deb http://www.rabbitmq.com/debian/ testing main' |  tee /etc/apt/sources.list.d/rabbitmq.list
+wget -O- https://www.rabbitmq.com/rabbitmq-release-signing-key.asc |  apt-key add -
+
+apt-get update
+apt-get install rabbitmq-server
+update-rc.d rabbitmq-server defaults
+service rabbitmq-server start
+
+
+
 
 # Ensure our Magento directory exists
 mkdir -p $MAGENTO_ROOT
@@ -227,20 +248,20 @@ if [[  ! -f "$MAGENTO_ROOT/composer.json" && "$UPDATE_UID_GID" = "true" ]]; then
 fi
 
 # Configure Sendmail if required
-if [ "$ENABLE_SENDMAIL" == "true" ]; then
-    /etc/init.d/sendmail start
-fi
+# if [ "$ENABLE_SENDMAIL" == "true" ]; then
+#     /etc/init.d/sendmail start
+# fi
 
 
 # Configure PHP
-[ ! -z "${PHP_MEMORY_LIMIT}" ] && sed -i "s/!PHP_MEMORY_LIMIT!/${PHP_MEMORY_LIMIT}/" /usr/local/etc/php/conf.d/zz-magento.ini
+#[ ! -z "${PHP_MEMORY_LIMIT}" ] && sed -i "s/!PHP_MEMORY_LIMIT!/${PHP_MEMORY_LIMIT}/" /usr/local/etc/php/conf.d/zz-magento.ini
 
 [ "$PHP_ENABLE_XDEBUG" = "true" ] && \
     docker-php-ext-enable xdebug && \
     echo "Xdebug is enabled"
 
 # Configure PHP-FPM
-[ ! -z "${MAGENTO_RUN_MODE}" ] && sed -i "s/!MAGENTO_RUN_MODE!/${MAGENTO_RUN_MODE}/" /usr/local/etc/php-fpm.conf
+#[ ! -z "${MAGENTO_RUN_MODE}" ] && sed -i "s/!MAGENTO_RUN_MODE!/${MAGENTO_RUN_MODE}/" /usr/local/etc/php-fpm.conf
 
 # Configure composer
 [ ! -z "${COMPOSER_GITHUB_TOKEN}" ] && \
@@ -275,7 +296,7 @@ if [ ! -f "$MAGENTO_ROOT/composer.json" ]; then
         echo "Install Magento"
 
         INSTALL_COMMAND="$MAGENTO_COMMAND setup:install \
-            --db-host=127.0.0.1 \
+            --db-host=$MYSQL_HOST \
             --db-name=$MYSQL_DATABASE \
             --db-user=$MYSQL_USER \
             --db-password=$MYSQL_PASSWORD \
@@ -316,11 +337,13 @@ fi
 
 #here you can install any additional Magento modules you need, for example
 echo "Installing magento 2 custom/catalog module"
-#composer --working-dir=$MAGENTO_ROOT config repositories.pawar-anil vcs https://github.com/pawar-anil/m2
-#composer --working-dir=$MAGENTO_ROOT require custom/module-catalog:dev-master
+composer --working-dir=$MAGENTO_ROOT config repositories.custom/catalog vcs https://github.com/pawar-anil/m2.git
+composer --working-dir=$MAGENTO_ROOT require custom/catalog:dev-master
+composer --working-dir=$MAGENTO_ROOT require renatocason/magento2-module-mq
+composer --working-dir=$MAGENTO_ROOT require renatocason/magento2-module-mq-mysql
 
 #cp -r ../Custom $MAGENTO_ROOT/app/code
-cp -r /usr/local/m2-module/* $MAGENTO_ROOT
+#cp -r /usr/local/m2-module/* $MAGENTO_ROOT
 #composer --working-dir=$MAGENTO_ROOT update
 #$MAGENTO_COMMAND module:enable Custom_Catalog
 
@@ -348,8 +371,10 @@ find $MAGENTO_ROOT/pub -type f -exec chmod 664 {} \;
 find $MAGENTO_ROOT/pub -type d -exec chmod 775 {} \;
 find $MAGENTO_ROOT/var/generation -type d -exec chmod g+s {} \;
 
+#nohup $MAGENTO_COMMAND ce_mq:queues:list > /dev/null 2>&1 &
+
 echo "Installation complete"
-
+rm -rf /etc/nginx/sites-enabled/default
 /etc/init.d/nginx start
-php-fpm -F
-
+nohup $MAGENTO_COMMAND ce_mq:consumers:start cproduct.updates > /dev/null 2>&1 &
+php-fpm7.0   -F

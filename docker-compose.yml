@@ -8,13 +8,18 @@ services:
         - MAGENTO_BASE_URL=${MAGENTO_BASE_URL}
     ports:
       - 80:80
-      - 443:443
-      - 3306:3306
+    # volumes:
+    #   - ~/.composer/cache:/root/.composer/cache
+    # volumes_from:
+    #   - dbdata
+    #   - appdata
     volumes:
-      - ~/.composer/cache:/root/.composer/cache
-    volumes_from:
-      - dbdata
-      - appdata
+      - ./magento:/var/www/magento
+      - ./provision/bin/installer:/usr/local/bin/installer
+      #- ./provision/etc/php-fpm.conf:/etc/php/7.0/fpm/php-fpm.conf
+      #- ./provision/etc/php.ini:/etc/php/7.0/cli/conf.d/zz-magento.ini
+    depends_on:
+      - mysql
     env_file:
       - ./global.env
       - ./composer.env
@@ -29,18 +34,27 @@ services:
       - M2SETUP_ADMIN_USER=admin
       - M2SETUP_ADMIN_PASSWORD=admin@123
       - M2SETUP_VERSION=2.2.2
-      # - M2SETUP_USE_SAMPLE_DATA=true
-      - MYSQL_ROOT_PASSWORD=magento2
-      - MYSQL_DATABASE=magento2
-      - MYSQL_USER=magento2
-      - MYSQL_PASSWORD=magento2
 
-  appdata:
-    image: tianon/true
-    volumes:
-      - ./magento:/var/www/magento
+  # appdata:
+  #   image: tianon/true
+  #   volumes:
+  #     - ./magento:/var/www/magento
 
-  dbdata:
-    image: tianon/true
+  # dbdata:
+  #   image: tianon/true
+  #   volumes:
+  #     - ./mysql:/var/lib/mysql
+
+
+  mysql:
+    image: mariadb:latest
     volumes:
       - ./mysql:/var/lib/mysql
+    env_file: ./global.env
+    ports:
+      - "3306:3306"
+    tty: true
+
+
+volumes:
+  mysql: {}
