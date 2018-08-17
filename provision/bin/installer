@@ -65,12 +65,12 @@ file_env() {
 #     #chown mysql:mysql $DATADIR
 
 # 	echo 'Initializing database'
-# 	#mysql_install_db --datadir="$DATADIR" --rpm 
+# 	#mysql_install_db --datadir="$DATADIR" --rpm
 # 	echo 'Database initialized'
 
 #     #chown -R mysql:mysql $DATADIR
 
-# #     exec gosu mysql 
+# #     exec gosu mysql
 #     mysqld --user=mysql --skip-networking --socket=/var/run/mysqld/mysqld.sock &
 # 	pid="$!"
 
@@ -176,7 +176,8 @@ file_env() {
     timeout=30
     echo -n "Waiting for database server to accept connections"
     #while ! /usr/bin/mysqladmin -u root -p${MYSQL_HOST} status >/dev/null 2>&1
-    while ! /usr/bin/mysqladmin -h${MYSQL_HOST} -u${MYSQL_ROOT_USER} -p${MYSQL_ROOT_PASSWORD} --port=${MYSQL_PORT} status >/dev/null 2>&1
+    #while ! /usr/bin/mysqladmin -h${MYSQL_HOST} -u${MYSQL_ROOT_USER} -p${MYSQL_ROOT_PASSWORD} --port=${MYSQL_PORT} status >/dev/null 2>&1
+    while ! /usr/bin/mysqladmin -h${MYSQL_HOST} -u${MYSQL_ROOT_USER} -p${MYSQL_ROOT_PASSWORD}  status >/dev/null 2>&1
     #while ! /usr/bin/mysqladmin -h172.19.0.2 -uroot -proot --port=3306 status >/dev/null 2>&1
     do
       timeout=$(($timeout - 1))
@@ -188,6 +189,58 @@ file_env() {
       sleep 1
     done
     echo
+
+
+
+
+# if [ ! -z "$MYSQL_ROOT_PASSWORD" ]; then
+#             mysql+=( -p"${MYSQL_ROOT_PASSWORD}" )
+# 	fi
+
+#     echo "Creating database and user..."
+
+# 	file_env 'MYSQL_DATABASE'
+# 	if [ "$MYSQL_DATABASE" ]; then
+# 		echo "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` ;" | "${mysql[@]}"
+# 		mysql+=( "$MYSQL_DATABASE" )
+# 	fi
+
+# 	file_env 'MYSQL_USER'
+# 	file_env 'MYSQL_PASSWORD'
+# 	if [ "$MYSQL_USER" -a "$MYSQL_PASSWORD" ]; then
+# 		echo "CREATE USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' ;" | "${mysql[@]}"
+
+# 		if [ "$MYSQL_DATABASE" ]; then
+# 			echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'%' ;" | "${mysql[@]}"
+# 		fi
+
+# 		echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
+# 	fi
+
+#     if [ "$MYSQL_USER" -a "$MYSQL_PASSWORD" ]; then
+#         echo "CREATE USER '$MYSQL_USER'@'172.19.0.2' IDENTIFIED BY '$MYSQL_PASSWORD' ;" | "${mysql[@]}"
+
+#         if [ "$MYSQL_DATABASE" ]; then
+#             echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'172.19.0.2' ;" | "${mysql[@]}"
+#         fi
+
+#         echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
+#     fi
+
+#     ## create a 172.19.0.2 only, debian-sys-maint user
+#     ## the debian-sys-maint is used while creating users and database
+#     ## as well as to shut down or starting up the mysql server via mysqladmin
+#     echo "Creating debian-sys-maint user..."
+#     echo "GRANT ALL PRIVILEGES on *.* TO 'debian-sys-maint'@'172.19.0.2' IDENTIFIED BY '' WITH GRANT OPTION;" | "${mysql[@]}"
+#     echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
+# fi
+
+
+
+
+mysql -h${MYSQL_HOST} -u${MYSQL_ROOT_USER} -p${MYSQL_ROOT_PASSWORD} -e "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` ;";
+
+
 
 
 # nginx setup
@@ -298,8 +351,8 @@ if [ ! -f "$MAGENTO_ROOT/composer.json" ]; then
         INSTALL_COMMAND="$MAGENTO_COMMAND setup:install \
             --db-host=$MYSQL_HOST \
             --db-name=$MYSQL_DATABASE \
-            --db-user=$MYSQL_USER \
-            --db-password=$MYSQL_PASSWORD \
+            --db-user=$MYSQL_ROOT_USER \
+            --db-password=$MYSQL_ROOT_PASSWORD \
             --base-url=$M2SETUP_BASE_URL \
             --backend-frontname=$M2SETUP_BACKEND_FRONTNAME \
             --admin-firstname=$M2SETUP_ADMIN_FIRSTNAME \
@@ -355,7 +408,7 @@ $MAGENTO_COMMAND cache:flush
 
 
 echo "Updating core_config_data"
-mysql -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "insert core_config_data (config_id, scope, scope_id, path, value) values (null, 'default', 0, 'dev/static/sign', 0);";
+mysql -h${MYSQL_HOST} -u${MYSQL_ROOT_USER} -p${MYSQL_ROOT_PASSWORD} -e "use \`$MYSQL_DATABASE\` ;insert core_config_data (config_id, scope, scope_id, path, value) values (null, 'default', 0, 'dev/static/sign', 0);";
 
 echo "Fixing file permissions..."
 
