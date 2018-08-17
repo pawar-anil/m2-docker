@@ -87,7 +87,7 @@ ADD etc/vhost.conf /etc/nginx/conf.d/default.conf
 
 
 
-EXPOSE 80
+EXPOSE 80 3306
 
 ENTRYPOINT ["/usr/local/bin/installer"]
 
